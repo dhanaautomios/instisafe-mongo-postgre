@@ -1,0 +1,258 @@
+-- Table for applications
+CREATE TABLE applications (
+    id SERIAL PRIMARY KEY,
+    application_name VARCHAR(255) NOT NULL,
+    application_url VARCHAR(255) NOT NULL,
+    application_logo_url TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL
+);
+
+-- Table for pages
+CREATE TABLE pages (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    url VARCHAR(255) UNIQUE NOT NULL,
+    page_icon TEXT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL
+
+);
+
+
+-- Table for locations
+CREATE TABLE locations (
+    id SERIAL PRIMARY KEY,
+    location_type VARCHAR(255) CHECK (location_type = 'Point') DEFAULT 'Point',
+    coordinates DOUBLE PRECISION[] NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL
+
+);
+
+
+-- Table for camera locations
+CREATE TABLE camera_locations (
+    id SERIAL PRIMARY KEY,
+    location_name VARCHAR(255) NOT NULL,
+    building_name VARCHAR(255) NOT NULL,
+    floor_number INT,
+    status VARCHAR(20) DEFAULT 'Active',
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL
+
+);
+
+CREATE TABLE permissions (
+    id SERIAL PRIMARY KEY,
+    page_id INT REFERENCES pages(id) ON DELETE CASCADE, -- Foreign key to pages
+    view BOOLEAN DEFAULT FALSE,
+    "create" BOOLEAN DEFAULT FALSE,  -- Use double quotes to escape the reserved keyword
+    edit BOOLEAN DEFAULT FALSE,
+    delete BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL
+
+);
+
+
+-- Table for admins
+CREATE TABLE admins (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    is_first_login BOOLEAN DEFAULT TRUE,
+    created_by INT,
+    modified_by INT,
+    status VARCHAR(20) DEFAULT 'active',
+    phone_number VARCHAR(20) NOT NULL,
+    emergency_number VARCHAR(20) NOT NULL,
+    profile_photo TEXT DEFAULT '',
+    date_of_birth DATE,
+    address TEXT,
+    gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+    blood_group VARCHAR(5) CHECK (blood_group IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
+    report_to VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (created_by) REFERENCES admins(id),
+    FOREIGN KEY (modified_by) REFERENCES admins(id)
+);
+
+-- Table for roles
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    created_by INT REFERENCES admins(id) ON DELETE SET NULL, -- Foreign key to admins
+    updated_by INT REFERENCES admins(id) ON DELETE SET NULL, -- Foreign key to admins
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL
+
+);
+
+CREATE TABLE role_permissions (
+    role_id INT REFERENCES roles(id) ON DELETE CASCADE, -- Foreign key to roles
+    permission_id INT REFERENCES permissions(id) ON DELETE CASCADE, -- Foreign key to permissions
+    PRIMARY KEY (role_id, permission_id)
+);
+
+-- Mapping table for user and roles
+CREATE TABLE admin_roles (
+    user_id INT,
+    role_id INT,
+    assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES admins(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+);
+
+-- Table for users
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    fcm_token TEXT,
+    invited_by INT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (invited_by) REFERENCES users(id)
+);
+
+
+-- Table for user application
+CREATE TABLE user_applications (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    application_id INT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (application_id) REFERENCES applications(id)
+);
+
+
+-- Table for cameras
+CREATE TABLE cameras (
+    id SERIAL PRIMARY KEY,
+    location_type VARCHAR(255) CHECK (location_type = 'Point') DEFAULT 'Point',
+    coordinates DOUBLE PRECISION[] NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    building VARCHAR(255) NOT NULL,
+    location_id INT,
+    rtsp TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (location_id) REFERENCES locations(id)
+);
+
+
+-- Table for feeds
+CREATE TABLE feeds (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    image_urls TEXT[] NOT NULL,
+    created_by INT,
+    modified_by INT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    deleted BOOLEAN DEFAULT FALSE,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (created_by) REFERENCES admins(id),
+    FOREIGN KEY (modified_by) REFERENCES admins(id)
+);
+
+-- Table for likes
+CREATE TABLE likes (
+    id SERIAL PRIMARY KEY,
+    feed_id INT,
+    user_id INT,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (feed_id) REFERENCES feeds(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE(feed_id, user_id)
+);
+
+-- Table for comments
+CREATE TABLE comments (
+    id SERIAL PRIMARY KEY,
+    feed_id INT,
+    user_id INT,
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (feed_id) REFERENCES feeds(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Table for alerts
+CREATE TABLE alerts (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    location_type VARCHAR(255) CHECK (location_type = 'Point') DEFAULT 'Point',
+    coordinates DOUBLE PRECISION[] NOT NULL,
+    status VARCHAR(20) CHECK (status IN ('PENDING', 'ACKNOWLEDGED', 'RESOLVED')) DEFAULT 'PENDING',
+    frontend_timestamp TIMESTAMPTZ,
+    acked_at TIMESTAMPTZ,
+    resolved_at TIMESTAMPTZ,
+    resolved_by VARCHAR(20) CHECK (resolved_by IN ('USER', 'ADMIN')),
+    acked_by VARCHAR(20) CHECK (acked_by = 'ADMIN'),
+    assignee INT,
+    origin VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (assignee) REFERENCES admins(id)
+);
+
+-- Create table for invitees
+CREATE TABLE invitees (
+    id SERIAL PRIMARY KEY,
+    invited_by INT NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    is_registered BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (invited_by) REFERENCES users(id)
+);
+
+
+CREATE TABLE notifications (
+    id SERIAL PRIMARY KEY,               -- Auto-incremented primary key
+    title VARCHAR(255) NOT NULL,          -- Notification title (string)
+    message TEXT NOT NULL,                -- Notification message (text)
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,  -- Created date with timezone
+    created_by INT,                       -- Reference to admins table
+    is_notified BOOLEAN DEFAULT FALSE,    -- Boolean flag for notification status
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (created_by) REFERENCES admins(id)  -- Foreign key constraint to admins table
+);
+
+
+CREATE TABLE recordings (
+    id SERIAL PRIMARY KEY,                      -- Auto-incremented primary key
+    started_at TIMESTAMPTZ NOT NULL,             -- Start time with timestamp
+    stopped_at TIMESTAMPTZ,                      -- Stop time with timestamp
+    camera_id INT NOT NULL,                      -- Foreign key reference to cameras table
+    alert_id INT NOT NULL,                       -- Foreign key reference to alert_logs table
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,  -- Created timestamp (auto-generated)
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,  -- Updated timestamp (auto-generated)
+    map_id VARCHAR(255) NULL,
+    FOREIGN KEY (camera_id) REFERENCES cameras(id),    -- Foreign key to cameras table
+    FOREIGN KEY (alert_id) REFERENCES alerts(id)   -- Foreign key to alert_logs table
+);

@@ -1,0 +1,15 @@
+{
+  "name": "migrationcopydata",
+  "version": "1.0.0",
+  "description": "mongo db to postgresql db ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mongoose": "^8.12.1",
+    "pg": "^8.14.0"
+  }
+}
